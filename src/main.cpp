@@ -193,11 +193,6 @@ Value *LogErrorV(const char *Str) {
   return nullptr;
 }
 
-auto LHS = std::make_unique<VariableExprAST>("x");
-auto RHS = std::make_unique<VariableExprAST>("y");
-auto Result =
-    std::make_unique<BinaryExprAST>('+', std::move(LHS), std::move(RHS));
-
 // BinOpPrecedence - this holds the precedence for each binary operator that is
 // defined.
 static std::map<char, int> BinOpPrecedence;
@@ -379,13 +374,13 @@ static std::unique_ptr<PrototypeAST> ParsePrototype() {
 // =============== //
 // Code Generation //
 // =============== //
-static LLVMContext TheContext;
-static IRBuilder<> Builder(TheContext);
+static std::unique_ptr<LLVMContext> TheContext;
 static std::unique_ptr<Module> TheModule;
+static std::unique_ptr<IRBuilder<>> Builder;
 static std::map<std::string, Value *> NamedValues;
 
 Value *NumberExprAST::codegen() {
-  return ConstantFP::get(TheContext, APFloat(Val));
+  return ConstantFP::get(*TheContext, APFloat(Val));
 }
 
 Value *VariableExprAST::codegen() {
@@ -404,15 +399,15 @@ Value *BinaryExprAST::codegen() {
 
   switch (Op) {
   case '+':
-    return Builder.CreateFAdd(L, R, "addtmp");
+    return Builder->CreateFAdd(L, R, "addtmp");
   case '-':
-    return Builder.CreateFSub(L, R, "subtmp");
+    return Builder->CreateFSub(L, R, "subtmp");
   case '*':
-    return Builder.CreateFMul(L, R, "multmp");
+    return Builder->CreateFMul(L, R, "multmp");
   case '<':
-    L = Builder.CreateFCmpULT(L, R, "cmptmp");
+    L = Builder->CreateFCmpULT(L, R, "cmptmp");
     // Convert bool 0/1 to double 0.0 or 1.0
-    return Builder.CreateUIToFP(L, Type::getDoubleTy(TheContext), "booltmp");
+    return Builder->CreateUIToFP(L, Type::getDoubleTy(*TheContext), "booltmp");
   default:
     return LogErrorV("invalid binary operator");
   }
@@ -434,14 +429,14 @@ Value *CallExprAST::codegen() {
     if (!ArgsV.back())
       return nullptr;
   }
-  return Builder.CreateCall(CalleeF, ArgsV, "calltmp");
+  return Builder->CreateCall(CalleeF, ArgsV, "calltmp");
 }
 
 Function *PrototypeAST::codegen() {
   // Make the function type: double(double,double) etc.
-  std::vector<Type *> Doubles(Args.size(), Type::getDoubleTy(TheContext));
+  std::vector<Type *> Doubles(Args.size(), Type::getDoubleTy(*TheContext));
   FunctionType *FT =
-      FunctionType::get(Type::getDoubleTy(TheContext), Doubles, false);
+      FunctionType::get(Type::getDoubleTy(*TheContext), Doubles, false);
   Function *F =
       Function::Create(FT, Function::ExternalLinkage, Name, TheModule.get());
   unsigned Idx = 0;
@@ -462,8 +457,8 @@ Function *FunctionAST::codegen() {
 
   if (!TheFunction->empty())
     return (Function *)LogErrorV("Function cannot be redefined");
-  BasicBlock *BB = BasicBlock::Create(TheContext, "entry", TheFunction);
-  Builder.SetInsertPoint(BB);
+  BasicBlock *BB = BasicBlock::Create(*TheContext, "entry", TheFunction);
+  Builder->SetInsertPoint(BB);
 
   // Record the function arguments in the NamedValues map
   NamedValues.clear();
@@ -472,7 +467,7 @@ Function *FunctionAST::codegen() {
 
   if (Value *RetVal = Body->codegen()) {
     // Finish off the function
-    Builder.CreateRet(RetVal);
+    Builder->CreateRet(RetVal);
 
     // Validate the generated code, checking for consistency
     verifyFunction(*TheFunction);
@@ -483,9 +478,26 @@ Function *FunctionAST::codegen() {
   return nullptr;
 }
 
+//================================= //
+// Top level parsing and JIT driver //
+//================================= //
+
+static void InitializeModule() {
+  // Open a new context and module.
+  TheContext = std::make_unique<LLVMContext>();
+  TheModule = std::make_unique<Module>("my cool jit", *TheContext);
+
+  // Create a new builder for the module.
+  Builder = std::make_unique<IRBuilder<>>(*TheContext);
+}
+
 static void HandleDefinition() {
-  if (ParseDefinition()) {
-    fprintf(stderr, "Parsed a function definition.\n");
+  if (auto FnAST = ParseDefinition()) {
+    if (auto *FnIR = FnAST->codegen()) {
+      fprintf(stderr, "Read function definition:");
+      FnIR->print(errs());
+      fprintf(stderr, "\n");
+    }
   } else {
     // Skip token for error recovery.
     getNextToken();
@@ -493,8 +505,12 @@ static void HandleDefinition() {
 }
 
 static void HandleExtern() {
-  if (ParseExtern()) {
-    fprintf(stderr, "Parsed an extern\n");
+  if (auto ProtoAST = ParseExtern()) {
+    if (auto *FnIR = ProtoAST->codegen()) {
+      fprintf(stderr, "Read extern: ");
+      FnIR->print(errs());
+      fprintf(stderr, "\n");
+    }
   } else {
     // Skip token for error recovery.
     getNextToken();
@@ -503,8 +519,15 @@ static void HandleExtern() {
 
 static void HandleTopLevelExpression() {
   // Evaluate a top-level expression into an anonymous function.
-  if (ParseTopLevelExpr()) {
-    fprintf(stderr, "Parsed a top-level expr\n");
+  if (auto FnAST = ParseTopLevelExpr()) {
+    if (auto *FnIR = FnAST->codegen()) {
+      fprintf(stderr, "Read top-level expression:");
+      FnIR->print(errs());
+      fprintf(stderr, "\n");
+
+      // Remove the anonymous expression.
+      FnIR->eraseFromParent();
+    }
   } else {
     // Skip token for error recovery.
     getNextToken();
@@ -534,7 +557,9 @@ static void MainLoop() {
   }
 }
 
-// Main driver code
+// ================= //
+// Main driver code. //
+// ================= //
 
 int main() {
   // Install standard binary operators.
@@ -548,8 +573,14 @@ int main() {
   fprintf(stderr, "ready> ");
   getNextToken();
 
+  // Make the module, which holds all the code.
+  InitializeModule();
+
   // Run the main "interpreter loop" now.
   MainLoop();
+
+  // Print out all of the generated code.
+  TheModule->print(errs(), nullptr);
 
   return 0;
 }
