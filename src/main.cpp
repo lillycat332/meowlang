@@ -194,6 +194,8 @@ public:
 class PrototypeAST {
   std::string Name;
   std::vector<std::string> Args;
+  bool IsOperator;
+  unsigned Precedence;
 
 public:
   PrototypeAST(const std::string &name, std::vector<std::string> Args)
