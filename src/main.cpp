@@ -19,6 +19,7 @@
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/Function.h>
 #include <llvm/IR/IRBuilder.h>
+#include <llvm/IR/Instructions.h>
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/LegacyPassManager.h>
 #include <llvm/IR/Module.h>
@@ -32,7 +33,6 @@
 #include <map>
 #include <memory>
 #include <string>
-#include <vector>
 
 using namespace llvm;
 using namespace llvm::orc;
@@ -627,6 +627,21 @@ static std::unique_ptr<llvm::orc::KaleidoscopeJIT> TheJIT;
 static std::map<std::string, std::unique_ptr<PrototypeAST>> FunctionProtos;
 static ExitOnError ExitOnErr;
 
+Function *getFunction(std::string Name) {
+  // First, see if the function has already been added to the current module.
+  if (auto *F = TheModule->getFunction(Name))
+    return F;
+
+  // If not, check whether we can codegen the declaration from some existing
+  // prototype.
+  auto FI = FunctionProtos.find(Name);
+  if (FI != FunctionProtos.end())
+    return FI->second->codegen();
+
+  // If no existing prototype exists, return null.
+  return nullptr;
+}
+
 Value *NumberExprAST::codegen() {
   return ConstantFP::get(*TheContext, APFloat(Val));
 }
@@ -696,7 +711,8 @@ Function *PrototypeAST::codegen() {
 Function *FunctionAST::codegen() {
   // Transfer ownership of the prototype to the FunctionProtos map, but
   // keep a reference to it for use below.
-  auto &P = *Proto FunctionProtos[Proto->getName()] = std::move(Proto);
+  auto &P = *Proto;
+  FunctionProtos[Proto->getName()] = std::move(Proto);
   Function *TheFunction = getFunction(P.getName());
   if (!TheFunction)
     return nullptr;
