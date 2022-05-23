@@ -25,6 +25,8 @@
 #include <string>
 #include <vector>
 
+using namespace llvm;
+
 enum Token {
 	tok_eof = -1,
 	
