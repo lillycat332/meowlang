@@ -581,7 +581,8 @@ static std::unique_ptr<PrototypeAST> ParsePrototype() {
     getNextToken();
     if (!isascii(CurTok))
       return LogErrorP("Expected binary operator");
-    FnName = "binary" FnName += (char)CurTok;
+    FnName = "binary";
+    FnName += (char)CurTok;
     Kind = 2;
     getNextToken();
 
@@ -611,7 +612,7 @@ static std::unique_ptr<PrototypeAST> ParsePrototype() {
   if (Kind && ArgNames.size() != Kind)
     return LogErrorP("Invalid number of operands for operator");
 
-  return std::make_unique<PrototypeAST>(FuncName, std::move(ArgNames));
+  return std::make_unique<PrototypeAST>(FnName, std::move(ArgNames));
 }
 
 // =============== //
