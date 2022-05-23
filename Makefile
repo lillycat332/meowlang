@@ -9,7 +9,7 @@ all: lang
 lang: |$(BUILD_DIR)
 	@echo -n 'building meowlang with: '
 	@$(CC) --version | sed 1q
-	$(CC) -o $(BUILD_DIR)/meowi $(SRCS) $(CFLAGS) `llvm-config --cxxflags --ldflags --libs`
+	$(CC) $(SRCS) $(CFLAGS) `llvm-config --cxxflags --ldflags --libs` -o $(BUILD_DIR)/meowi 
 
 $(BUILD_DIR):
 	@echo "Folder $(BUILD_DIR) does not exist, creating it..."
