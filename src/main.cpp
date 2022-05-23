@@ -897,9 +897,9 @@ Value *UnaryExprAST::codegen() {
 //================================= //
 
 static void InitializeModuleAndPassManager() {
-  // Open a new context and module.
+  // Open a new module.
   TheContext = std::make_unique<LLVMContext>();
-  TheModule = std::make_unique<Module>("meowjit", *TheContext);
+  TheModule = std::make_unique<Module>("my cool jit", *TheContext);
   TheModule->setDataLayout(TheJIT->getDataLayout());
 
   // Create a new builder for the module.
@@ -1002,9 +1002,9 @@ static void MainLoop() {
   }
 }
 
-//=========================================================== //
-// "Library" functions that can be "extern'd" from user code. //
-//=========================================================== //
+//================== //
+// Library functions //
+//================== //
 
 #ifdef _WIN32
 #define DLLEXPORT __declspec(dllexport)
@@ -1023,9 +1023,10 @@ extern "C" DLLEXPORT double printd(double X) {
   fprintf(stderr, "%f\n", X);
   return 0;
 }
-// ================= //
+
+//================== //
 // Main driver code. //
-// ================= //
+//================== //
 
 int main() {
   InitializeNativeTarget();
@@ -1044,11 +1045,11 @@ int main() {
   getNextToken();
 
   TheJIT = ExitOnErr(KaleidoscopeJIT::Create());
+
   InitializeModuleAndPassManager();
 
   // Run the main "interpreter loop" now.
   MainLoop();
 
-  TheModule->print(errs(), nullptr);
   return 0;
 }
