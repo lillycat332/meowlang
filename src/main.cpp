@@ -709,8 +709,8 @@ Function *PrototypeAST::codegen() {
 }
 
 Function *FunctionAST::codegen() {
-  // Transfer ownership of the prototype to the FunctionProtos map, but
-  // keep a reference to it for use below.
+  // Transfer ownership of the prototype to the FunctionProtos map, but keep a
+  // reference to it for use below.
   auto &P = *Proto;
   FunctionProtos[Proto->getName()] = std::move(Proto);
   Function *TheFunction = getFunction(P.getName());
@@ -721,38 +721,33 @@ Function *FunctionAST::codegen() {
   if (P.isBinaryOp())
     BinOpPrecedence[P.getOperatorName()] = P.getBinaryPrecedence();
 
-  // Create a new basic block to start insertion into
-  BasicBlock *BB = BasicBlock::Create(*TheContext, "entry", TheFunction);
-  // First, check for an existing function from a previous 'extern'
-  // declaration
-  Function *TheFunction = TheModule->getFunction(Proto->getName());
-
-  if (!TheFunction)
-    TheFunction = Proto->codegen();
-
-  if (!TheFunction)
-    return nullptr;
-
-  if (!TheFunction->empty())
-    return (Function *)LogErrorV("Function cannot be redefined");
+  // Create a new basic block to start insertion into.
   BasicBlock *BB = BasicBlock::Create(*TheContext, "entry", TheFunction);
   Builder->SetInsertPoint(BB);
 
-  // Record the function arguments in the NamedValues map
+  // Record the function arguments in the NamedValues map.
   NamedValues.clear();
   for (auto &Arg : TheFunction->args())
     NamedValues[std::string(Arg.getName())] = &Arg;
 
   if (Value *RetVal = Body->codegen()) {
-    // Finish off the function
+    // Finish off the function.
     Builder->CreateRet(RetVal);
 
-    // Validate the generated code, checking for consistency
+    // Validate the generated code, checking for consistency.
     verifyFunction(*TheFunction);
+
+    // Run the optimizer on the function.
+    TheFPM->run(*TheFunction);
 
     return TheFunction;
   }
+
+  // Error reading body, remove function.
   TheFunction->eraseFromParent();
+
+  if (P.isBinaryOp())
+    BinopPrecedence.erase(P.getOperatorName());
   return nullptr;
 }
 
