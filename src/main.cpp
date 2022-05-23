@@ -27,6 +27,12 @@
 
 using namespace llvm;
 
+// ===== //
+// Lexer //
+// ===== //
+
+// The lexer returns tokens [0-255] if it is an unknown character, otherwise one of these 
+// for known things
 enum Token {
   tok_eof = -1,
 
@@ -93,11 +99,9 @@ static int gettok() {
   return ThisChar;
 }
 
-// CurTok/getNextToken - provide a simple token buffer. CurTok is current token
-// the parser is looking at. getNextToken reads another token from the lexer
-// and updates CurTok with its results
-static int CurTok;
-static int getNextToken() { return CurTok = gettok(); }
+// ==================== //
+// Abstract syntax tree //
+// ==================== //
 
 namespace {
 // ExprAST - Base expression class for expression nodes
@@ -176,7 +180,22 @@ public:
   Function *codegen();
 };
 
-} // namespace
+} // end namespace
+
+// ====== //
+// Parser //
+// ====== //
+
+// CurTok/getNextToken - provide a simple token buffer. CurTok is current token
+// the parser is looking at. getNextToken reads another token from the lexer
+// and updates CurTok with its results
+static int CurTok;
+static int getNextToken() { return CurTok = gettok(); }
+
+// BinOpPrecedence - this holds the precedence for each binary operator that is
+// defined.
+static std::map<char, int> BinOpPrecedence;
+
 // LogError* - These are helper functions for error handling
 std::unique_ptr<ExprAST> LogError(const char *Str) {
   fprintf(stderr, "LogError: %s\n", Str);
@@ -192,10 +211,6 @@ Value *LogErrorV(const char *Str) {
   LogError(Str);
   return nullptr;
 }
-
-// BinOpPrecedence - this holds the precedence for each binary operator that is
-// defined.
-static std::map<char, int> BinOpPrecedence;
 
 // GetTokPrecedence - get the precedence of the pending binary operator token.
 static int GetTokPrecedence() {
