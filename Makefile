@@ -1,6 +1,6 @@
 CC := clang++
 CCVERSION := $(shell $(CC) -dumpversion)
-CFLAGS :=-Wshadow -Wall -Wextra -Wpedantic -Wstrict-overflow -Wfatal-errors -Wno-unused-function -fno-strict-aliasing -Wno-nullability-completeness -Wno-nullability-extension
+CFLAGS :=-Wshadow -Wall -Wextra -Wpedantic -Wstrict-overflow -Wfatal-errors -Wno-unused-function -fno-strict-aliasing -Wno-nullability-completeness -Wno-nullability-extension -rdynamic
 LLVMFLAGS := $(shell llvm-config --cxxflags --ldflags --libs)
 BUILD_DIR := build
 SRCS := src/main.cpp

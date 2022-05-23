@@ -1,7 +1,7 @@
 { pkgs ? import <nixpkgs> {} }:
   pkgs.mkShell {
     # nativeBuildInputs is usually what you want -- tools you need to run
-    nativeBuildInputs = with pkgs; [x
+    nativeBuildInputs = with pkgs; [
       llvmPackages_latest.bintools
       llvmPackages_latest.clang
       llvmPackages_latest.libclang
