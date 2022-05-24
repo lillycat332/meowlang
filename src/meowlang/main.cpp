@@ -76,6 +76,10 @@ enum Token {
 
   // var definition
   tok_var = -13,
+
+  // Block definition - {}
+  tok_startblk = -14,
+  tok_endblk = -15,
 };
 
 static std::string IdentifierStr; // Filled in if tok_identifier
@@ -114,6 +118,10 @@ static int gettok() {
       return tok_unary;
     if (IdentifierStr == "var")
       return tok_var;
+    if (IdentifierStr == "{")
+      return tok_startblk;
+    if (IdentifierStr == "}")
+      return tok_endblk;
     return tok_identifier;
   }
 
@@ -325,13 +333,14 @@ namespace {
     std::vector<std::string> Args;
     bool IsOperator;
     unsigned Precedence; // Precedence if a binary op.
+    int Line;
 
   public:
-    PrototypeAST(const std::string &Name, std::vector<std::string> Args,
-                 bool IsOperator = false, unsigned Prec = 0)
+    PrototypeAST(SourceLocation Loc, const std::string &Name,
+                 std::vector<std::string> Args, bool IsOperator = false,
+                 unsigned Prec = 0)
         : Name(Name), Args(std::move(Args)), IsOperator(IsOperator),
-          Precedence(Prec) {}
-
+          Precedence(Prec), Line(Loc.Line) {}
     Function *codegen();
     const std::string &getName() const { return Name; }
 
@@ -344,6 +353,7 @@ namespace {
     }
 
     unsigned getBinaryPrecedence() const { return Precedence; }
+    int getLine() const { return Line; }
   };
 
   /// FunctionAST - Expression class which represents the function itself
@@ -399,18 +409,19 @@ static std::unique_ptr<PrototypeAST> ParsePrototype();
 
 /// toplevelexpr ::= expression
 static std::unique_ptr<FunctionAST> ParseTopLevelExpr() {
+  SourceLocation FnLoc = CurLoc;
   if (auto E = ParseExpression()) {
-    // Put top level code into the main function.
-    auto Proto =
-        std::make_unique<PrototypeAST>("main", std::vector<std::string>());
+    // Make an anonymous proto.
+    auto Proto = std::make_unique<PrototypeAST>(
+        FnLoc, "main", std::vector<std::string>(), false, 0);
     return std::make_unique<FunctionAST>(std::move(Proto), std::move(E));
   }
   return nullptr;
 }
 
-/// extern ::= 'extern' prototype
+/// external ::= 'extern' prototype
 static std::unique_ptr<PrototypeAST> ParseExtern() {
-  getNextToken();
+  getNextToken(); // eat extern.
   return ParsePrototype();
 }
 
@@ -706,6 +717,8 @@ static std::unique_ptr<ExprAST> ParseExpression() {
 static std::unique_ptr<PrototypeAST> ParsePrototype() {
   std::string FnName;
 
+  SourceLocation FnLoc = CurLoc;
+
   unsigned Kind = 0; // 0 = identifier, 1 = unary, 2 = binary.
   unsigned BinaryPrecedence = 30;
 
@@ -761,9 +774,10 @@ static std::unique_ptr<PrototypeAST> ParsePrototype() {
   if (Kind && ArgNames.size() != Kind)
     return LogErrorP("Invalid number of operands for operator");
 
-  return std::make_unique<PrototypeAST>(FnName, ArgNames, Kind != 0,
+  return std::make_unique<PrototypeAST>(FnLoc, FnName, ArgNames, Kind != 0,
                                         BinaryPrecedence);
 }
+
 // =============== //
 // Codegen globals //
 // =============== //
@@ -1222,7 +1236,7 @@ Value *UnaryExprAST::codegen() {
 static void InitializeModule() {
   // Open a new module.
   TheContext = std::make_unique<LLVMContext>();
-  TheModule = std::make_unique<Module>("my cool jit", *TheContext);
+  TheModule = std::make_unique<Module>("MeowJIT", *TheContext);
   TheModule->setDataLayout(TheJIT->getDataLayout());
 
   Builder = std::make_unique<IRBuilder<>>(*TheContext);
@@ -1284,28 +1298,6 @@ static void MainLoop() {
   }
 }
 
-///================== //
-/// Library functions //
-///================== //
-
-#ifdef _WIN32
-#define DLLEXPORT __declspec(dllexport)
-#else
-#define DLLEXPORT
-#endif
-
-/// putchard - putchar that takes a double and returns 0.
-extern "C" DLLEXPORT double putchard(double X) {
-  fputc((char)X, stderr);
-  return 0;
-}
-
-/// printd - printf that takes a double prints it as "%f\n", returning 0.
-extern "C" DLLEXPORT double printd(double X) {
-  fprintf(stderr, "%f\n", X);
-  return 0;
-}
-
 /// ================== //
 ///  Main driver code. //
 /// ================== //
@@ -1356,6 +1348,52 @@ int main() {
 
   // Print out all of the generated code.
   TheModule->print(errs(), nullptr);
+
+  auto TargetTriple = sys::getDefaultTargetTriple();
+  TheModule->setTargetTriple(TargetTriple);
+
+  std::string Error;
+  auto Target = TargetRegistry::lookupTarget(TargetTriple, Error);
+
+  // Print an error and exit if we couldn't find the requested target.
+  // This generally occurs if we've forgotten to initialise the
+  // TargetRegistry or we have a bogus target triple.
+  if (!Target) {
+    errs() << Error;
+    return 1;
+  }
+
+  auto CPU = "generic";
+  auto Features = "";
+
+  TargetOptions opt;
+  auto RM = Optional<Reloc::Model>();
+  auto TheTargetMachine =
+      Target->createTargetMachine(TargetTriple, CPU, Features, opt, RM);
+
+  TheModule->setDataLayout(TheTargetMachine->createDataLayout());
+
+  auto Filename = "output.o";
+  std::error_code EC;
+  raw_fd_ostream dest(Filename, EC, sys::fs::OF_None);
+
+  if (EC) {
+    errs() << "Could not open file: " << EC.message();
+    return 1;
+  }
+
+  legacy::PassManager pass;
+  auto FileType = CGFT_ObjectFile;
+
+  if (TheTargetMachine->addPassesToEmitFile(pass, dest, nullptr, FileType)) {
+    errs() << "TheTargetMachine can't emit a file of this type";
+    return 1;
+  }
+
+  pass.run(*TheModule);
+  dest.flush();
+
+  outs() << "Wrote " << Filename << "\n";
 
   return 0;
 }
