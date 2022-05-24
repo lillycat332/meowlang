@@ -185,12 +185,18 @@ static int advance() {
 // ==================== //
 
 namespace {
-  /// ExprAST - Base class for all expression nodes.
   class ExprAST {
-  public:
-    virtual ~ExprAST() = default;
+    SourceLocation Loc;
 
+  public:
+    ExprAST(SourceLocation Loc = CurLoc) : Loc(Loc) {}
+    virtual ~ExprAST() {}
     virtual Value *codegen() = 0;
+    int getLine() const { return Loc.Line; }
+    int getCol() const { return Loc.Col; }
+    virtual raw_ostream &dump(raw_ostream &out, int ind) {
+      return out << ':' << getLine() << ':' << getCol() << '\n';
+    }
   };
 
   /// NumberExprAST - Expression class for numeric literals
@@ -1317,7 +1323,7 @@ int main() {
   // but we'd like actual source locations.
   KSDbgInfo.TheCU = DBuilder->createCompileUnit(
       dwarf::DW_LANG_C, DBuilder->createFile("fib.ks", "."),
-      "Kaleidoscope Compiler", false, "", 0);
+      "Meowlang Compiler", false, "", 0);
 
   // Run the main "interpreter loop" now.
   MainLoop();
