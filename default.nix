@@ -10,8 +10,8 @@ pkgs.stdenv.mkDerivation {
   src = pkgs.fetchFromGitHub {
     owner = "lillycat332";
     repo = "meowlang";
-    rev = "f4832c4d747cc85affe961786137722ce7cbd6e6";
-    hash = "1wh2m7m0r4d7jz02dylwm95nskkkpy4pcb8k96b6isr6v2c8znxi";
+    rev = "master";
+    hash = "sha256-lUG1yufj8OkN/Ycy2h7VoCNgAaTaLGH8sAW7+IGuXiQ=";
   };
 
   buildInputs = [ pkgs.clang pkgs.llvm pkgs.libllvm pkgs.libcxx pkgs.libcxxabi pkgs.libclang ];
