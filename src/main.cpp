@@ -6,33 +6,36 @@
 //
 
 #include "../../llvm-project/llvm/examples/Kaleidoscope/include/KaleidoscopeJIT.h"
+#include "llvm/ADT/APFloat.h"
+#include "llvm/ADT/STLExtras.h"
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Type.h"
+#include "llvm/IR/Verifier.h"
+#include "llvm/Support/TargetSelect.h"
+#include "llvm/Target/TargetMachine.h"
+#include "llvm/Transforms/InstCombine/InstCombine.h"
+#include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Scalar/GVN.h"
+#include "llvm/Transforms/Utils.h"
 #include <algorithm>
 #include <cassert>
 #include <cctype>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
-#include <llvm/ADT/APFloat.h>
-#include <llvm/ADT/STLExtras.h>
-#include <llvm/IR/BasicBlock.h>
-#include <llvm/IR/Constants.h>
-#include <llvm/IR/DerivedTypes.h>
-#include <llvm/IR/Function.h>
-#include <llvm/IR/IRBuilder.h>
-#include <llvm/IR/Instructions.h>
-#include <llvm/IR/LLVMContext.h>
-#include <llvm/IR/LegacyPassManager.h>
-#include <llvm/IR/Module.h>
-#include <llvm/IR/Type.h>
-#include <llvm/IR/Verifier.h>
-#include <llvm/Support/TargetSelect.h>
-#include <llvm/Target/TargetMachine.h>
-#include <llvm/Transforms/InstCombine/InstCombine.h>
-#include <llvm/Transforms/Scalar.h>
-#include <llvm/Transforms/Scalar/GVN.h>
 #include <map>
 #include <memory>
 #include <string>
+#include <utility>
+#include <vector>
 
 using namespace llvm;
 using namespace llvm::orc;
@@ -161,7 +164,9 @@ class VariableExprAST : public ExprAST {
 
 public:
   VariableExprAST(const std::string &Name) : Name(Name) {}
+
   Value *codegen() override;
+  const std::string &getName() const { return Name; }
 };
 
 /// BinaryExprAST - Expression class for binary operator
@@ -621,11 +626,20 @@ static std::unique_ptr<PrototypeAST> ParsePrototype() {
 static std::unique_ptr<LLVMContext> TheContext;
 static std::unique_ptr<Module> TheModule;
 static std::unique_ptr<IRBuilder<>> Builder;
-static std::map<std::string, Value *> NamedValues;
+static std::map<std::string, AllocaInst *> NamedValues;
+static std::map<std::string, std::unique_ptr<PrototypeAST>> FunctionProtos;
 static std::unique_ptr<legacy::FunctionPassManager> TheFPM;
 static std::unique_ptr<llvm::orc::KaleidoscopeJIT> TheJIT;
-static std::map<std::string, std::unique_ptr<PrototypeAST>> FunctionProtos;
 static ExitOnError ExitOnErr;
+
+/// CreateEntryBlockAlloca - Create an alloca instruction in the entry block of
+/// the function.  This is used for mutable variables etc.
+static AllocaInst *CreateEntryBlockAlloca(Function *TheFunction,
+                                          const std::string &VarName) {
+  IRBuilder<> TmpB(&TheFunction->getEntryBlock(),
+                   TheFunction->getEntryBlock().begin());
+  return TmpB.CreateAlloca(Type::getDoubleTy(*TheContext), 0, VarName.c_str());
+}
 
 Function *getFunction(std::string Name) {
   // First, see if the function has already been added to the current module.
@@ -651,7 +665,9 @@ Value *VariableExprAST::codegen() {
   Value *V = NamedValues[Name];
   if (!V)
     return LogErrorV("Unknown variable name");
-  return V;
+
+  // Load the value.
+  return Builder->CreateLoad(Type::getDoubleTy(*TheContext), V, Name.c_str());
 }
 
 Value *CallExprAST::codegen() {
@@ -697,7 +713,7 @@ Function *FunctionAST::codegen() {
 
   // If this is an operator, install it.
   if (P.isBinaryOp())
-    BinOpPrecedence[P.getOperatorName()] = P.getBinaryPrecedence();
+    BinopPrecedence[P.getOperatorName()] = P.getBinaryPrecedence();
 
   // Create a new basic block to start insertion into.
   BasicBlock *BB = BasicBlock::Create(*TheContext, "entry", TheFunction);
@@ -705,8 +721,16 @@ Function *FunctionAST::codegen() {
 
   // Record the function arguments in the NamedValues map.
   NamedValues.clear();
-  for (auto &Arg : TheFunction->args())
-    NamedValues[std::string(Arg.getName())] = &Arg;
+  for (auto &Arg : TheFunction->args()) {
+    // Create an alloca for this variable.
+    AllocaInst *Alloca = CreateEntryBlockAlloca(TheFunction, Arg.getName());
+
+    // Store the initial value into the alloca.
+    Builder->CreateStore(&Arg, Alloca);
+
+    // Add arguments to variable symbol table.
+    NamedValues[std::string(Arg.getName())] = Alloca;
+  }
 
   if (Value *RetVal = Body->codegen()) {
     // Finish off the function.
@@ -714,9 +738,6 @@ Function *FunctionAST::codegen() {
 
     // Validate the generated code, checking for consistency.
     verifyFunction(*TheFunction);
-
-    // Run the optimizer on the function.
-    TheFPM->run(*TheFunction);
 
     return TheFunction;
   }
@@ -729,81 +750,38 @@ Function *FunctionAST::codegen() {
   return nullptr;
 }
 
-Value *IfExprAST::codegen() {
-  Value *CondV = Cond->codegen();
-  if (!CondV)
-    return nullptr;
-
-  // Convert condition to a bool by comparing non-equal to 0.0.
-  CondV = Builder->CreateFCmpONE(
-      CondV, ConstantFP::get(*TheContext, APFloat(0.0)), "ifcond");
-  Function *TheFunction = Builder->GetInsertBlock()->getParent();
-  BasicBlock *ThenBB = BasicBlock::Create(*TheContext, "then", TheFunction);
-  BasicBlock *ElseBB = BasicBlock::Create(*TheContext, "else");
-  BasicBlock *MergeBB = BasicBlock::Create(*TheContext, "ifcont");
-  Builder->CreateCondBr(CondV, ThenBB, ElseBB);
-
-  // Emit then value.
-  Builder->SetInsertPoint(ThenBB);
-
-  Value *ThenV = Then->codegen();
-  if (!ThenV)
-    return nullptr;
-
-  Builder->CreateBr(MergeBB);
-  // Codegen of 'Then' can change the current block, update ThenBB for the PHI.
-  ThenBB = Builder->GetInsertBlock();
-  // Emit else block.
-  TheFunction->getBasicBlockList().push_back(ElseBB);
-  Builder->SetInsertPoint(ElseBB);
-
-  Value *ElseV = Else->codegen();
-  if (!ElseV)
-    return nullptr;
-
-  Builder->CreateBr(MergeBB);
-  // codegen of 'Else' can change the current block, update ElseBB for the PHI.
-  ElseBB = Builder->GetInsertBlock();
-  // Emit merge block.
-  TheFunction->getBasicBlockList().push_back(MergeBB);
-  Builder->SetInsertPoint(MergeBB);
-  PHINode *PN = Builder->CreatePHI(Type::getDoubleTy(*TheContext), 2, "iftmp");
-
-  PN->addIncoming(ThenV, ThenBB);
-  PN->addIncoming(ElseV, ElseBB);
-  return PN;
-}
-
 Value *ForExprAST::codegen() {
-  // Emit the start code first, without 'variable' in scope
+  Function *TheFunction = Builder->GetInsertBlock()->getParent();
+
+  // Create an alloca for the variable in the entry block.
+  AllocaInst *Alloca = CreateEntryBlockAlloca(TheFunction, VarName);
+
+  // Emit the start code first, without 'variable' in scope.
   Value *StartVal = Start->codegen();
   if (!StartVal)
     return nullptr;
+
+  // Store the value into the alloca.
+  Builder->CreateStore(StartVal, Alloca);
+
   // Make the new basic block for the loop header, inserting after current
   // block.
-  Function *TheFunction = Builder->GetInsertBlock()->getParent();
-  BasicBlock *PreheaderBB = Builder->GetInsertBlock();
   BasicBlock *LoopBB = BasicBlock::Create(*TheContext, "loop", TheFunction);
 
-  // Insert an explicit fall through from the current block to the LoopBB
+  // Insert an explicit fall through from the current block to the LoopBB.
   Builder->CreateBr(LoopBB);
 
   // Start insertion in LoopBB.
   Builder->SetInsertPoint(LoopBB);
 
-  // Start the PHI node with an entry for Start
-  PHINode *Variable =
-      Builder->CreatePHI(Type::getDoubleTy(*TheContext), 2, VarName.c_str());
-  Variable->addIncoming(StartVal, PreheaderBB);
+  // Within the loop, the variable is defined equal to the PHI node.  If it
+  // shadows an existing variable, we have to restore it, so save it now.
+  AllocaInst *OldVal = NamedValues[VarName];
+  NamedValues[VarName] = Alloca;
 
-  // Within the loop, the variable is defined equal to the PHI node. If it
-  // shadows an existing variable, we have to restore it so save now.
-  Value *OldVal = NamedValues[VarName];
-  NamedValues[VarName] = Variable;
-
-  // Emit IR for the body of the loop. This, like any other expr, can change
-  // the current BB. Note that we ignore the value computed by the body, but
-  // don't allow an error.
+  // Emit the body of the loop.  This, like any other expr, can change the
+  // current BB.  Note that we ignore the value computed by the body, but don't
+  // allow an error.
   if (!Body->codegen())
     return nullptr;
 
@@ -814,37 +792,42 @@ Value *ForExprAST::codegen() {
     if (!StepVal)
       return nullptr;
   } else {
-    // If not specified, use 1.0
+    // If not specified, use 1.0.
     StepVal = ConstantFP::get(*TheContext, APFloat(1.0));
   }
-  Value *NextVar = Builder->CreateFAdd(Variable, StepVal, "nextvar");
 
   // Compute the end condition.
   Value *EndCond = End->codegen();
   if (!EndCond)
     return nullptr;
 
-  // Convert condition to a bool by comparing non-equal to 0.0
+  // Reload, increment, and restore the alloca.  This handles the case where
+  // the body of the loop mutates the variable.
+  Value *CurVar = Builder->CreateLoad(Type::getDoubleTy(*TheContext), Alloca,
+                                      VarName.c_str());
+  Value *NextVar = Builder->CreateFAdd(CurVar, StepVal, "nextvar");
+  Builder->CreateStore(NextVar, Alloca);
+
+  // Convert condition to a bool by comparing non-equal to 0.0.
   EndCond = Builder->CreateFCmpONE(
       EndCond, ConstantFP::get(*TheContext, APFloat(0.0)), "loopcond");
-  // Create the "after loop" block and insert it
-  BasicBlock *LoopEndBB = Builder->GetInsertBlock();
+
+  // Create the "after loop" block and insert it.
   BasicBlock *AfterBB =
       BasicBlock::Create(*TheContext, "afterloop", TheFunction);
+
   // Insert the conditional branch into the end of LoopEndBB.
   Builder->CreateCondBr(EndCond, LoopBB, AfterBB);
 
-  // Any new code will be inserted in AfterBB
+  // Any new code will be inserted in AfterBB.
   Builder->SetInsertPoint(AfterBB);
 
-  // Add a new entry to the PHI node for the backedge/
-  Variable->addIncoming(NextVar, LoopEndBB);
-
-  // Restore the unshadowed variable
+  // Restore the unshadowed variable.
   if (OldVal)
     NamedValues[VarName] = OldVal;
   else
     NamedValues.erase(VarName);
+
   // for expr always returns 0.0.
   return Constant::getNullValue(Type::getDoubleTy(*TheContext));
 }
@@ -1044,12 +1027,63 @@ int main() {
   fprintf(stderr, "ready> ");
   getNextToken();
 
-  TheJIT = ExitOnErr(KaleidoscopeJIT::Create());
-
   InitializeModuleAndPassManager();
 
   // Run the main "interpreter loop" now.
   MainLoop();
+
+  // Initialize the target registry etc.
+  InitializeAllTargetInfos();
+  InitializeAllTargets();
+  InitializeAllTargetMCs();
+  InitializeAllAsmParsers();
+  InitializeAllAsmPrinters();
+
+  auto TargetTriple = LLVMGetDefaultTargetTriple();
+  TheModule->setTargetTriple(TargetTriple);
+
+  std::string Error;
+  auto Target = TargetRegistry::lookupTarget(TargetTriple, Error);
+
+  // Print an error and exit if we couldn't find the requested target.
+  // This generally occurs if we've forgotten to initialise the
+  // TargetRegistry or we have a bogus target triple.
+  if (!Target) {
+    errs() << Error;
+    return 1;
+  }
+
+  auto CPU = "generic";
+  auto Features = "";
+
+  TargetOptions opt;
+  auto RM = Optional<Reloc::Model>();
+  auto TheTargetMachine =
+      Target->createTargetMachine(TargetTriple, CPU, Features, opt, RM);
+
+  TheModule->setDataLayout(TheTargetMachine->createDataLayout());
+
+  auto Filename = "output.o";
+  std::error_code EC;
+  raw_fd_ostream dest(Filename, EC, sys::fs::OF_None);
+
+  if (EC) {
+    errs() << "Could not open file: " << EC.message();
+    return 1;
+  }
+
+  legacy::PassManager pass;
+  auto FileType = CGFT_ObjectFile;
+
+  if (TheTargetMachine->addPassesToEmitFile(pass, dest, nullptr, FileType)) {
+    errs() << "TheTargetMachine can't emit a file of this type";
+    return 1;
+  }
+
+  pass.run(*TheModule);
+  dest.flush();
+
+  outs() << "Wrote " << Filename << "\n";
 
   return 0;
 }
