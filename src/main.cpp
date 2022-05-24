@@ -37,12 +37,12 @@
 using namespace llvm;
 using namespace llvm::orc;
 
-// ===== //
-// Lexer //
-// ===== //
+/// ===== //
+/// Lexer //
+/// ===== //
 
-// The lexer returns tokens [0-255] if it is an unknown character, otherwise one
-// of these for known things
+/// The lexer returns tokens [0-255] if it is an unknown character, otherwise
+/// one of these for known things
 enum Token {
   tok_eof = -1,
 
@@ -139,14 +139,14 @@ static int gettok() {
 // ==================== //
 
 namespace {
-// ExprAST - Base expression class for expression nodes
+/// ExprAST - Base expression class for expression nodes
 class ExprAST {
 public:
   virtual ~ExprAST() = default;
   virtual Value *codegen() = 0;
 };
 
-// NumberExprAST - Expression class for numeric literals
+/// NumberExprAST - Expression class for numeric literals
 class NumberExprAST : public ExprAST {
   double Val;
 
@@ -155,7 +155,7 @@ public:
   Value *codegen() override;
 };
 
-// VariableExprAST - Expression class for referencing variables
+/// VariableExprAST - Expression class for referencing variables
 class VariableExprAST : public ExprAST {
   std::string Name;
 
@@ -164,7 +164,7 @@ public:
   Value *codegen() override;
 };
 
-// BinaryExprAST - Expression class for binary operator
+/// BinaryExprAST - Expression class for binary operator
 class BinaryExprAST : public ExprAST {
   char Op;
   std::unique_ptr<ExprAST> LHS, RHS;
@@ -188,9 +188,9 @@ public:
   Value *codegen() override;
 };
 
-// PrototypeAST - Expression class which represents the prototype for a function
-// which captures its name and argument types (and implicitly the number of
-// arguments it takes)
+/// PrototypeAST - Expression class which represents the prototype for a
+/// function which captures its name and argument types (and implicitly the
+/// number of arguments it takes)
 class PrototypeAST {
   std::string Name;
   std::vector<std::string> Args;
@@ -214,7 +214,7 @@ public:
   unsigned getBinaryPrecedence() const { return Precedence; }
 };
 
-// FunctionAST - Expression class which represents the function itself
+/// FunctionAST - Expression class which represents the function itself
 class FunctionAST {
   std::unique_ptr<PrototypeAST> Proto;
   std::unique_ptr<ExprAST> Body;
@@ -226,7 +226,7 @@ public:
   Function *codegen();
 };
 
-// IfExprAST - Expression class for if/then/else.
+/// IfExprAST - Expression class for if/then/else.
 class IfExprAST : public ExprAST {
   std::unique_ptr<ExprAST> Cond, Then, Else;
 
@@ -253,7 +253,7 @@ public:
   Value *codegen() override;
 };
 
-// UnaryExprAST - Expression class for unary operators.
+/// UnaryExprAST - Expression class for unary operators.
 class UnaryExprAST : public ExprAST {
   char Opcode;
   std::unique_ptr<ExprAST> Operand;
@@ -266,21 +266,21 @@ public:
 
 } // end namespace
 
-// ====== //
-// Parser //
-// ====== //
+/// ====== //
+/// Parser //
+/// ====== //
 
-// CurTok/getNextToken - provide a simple token buffer. CurTok is current token
-// the parser is looking at. getNextToken reads another token from the lexer
-// and updates CurTok with its results
+/// CurTok/getNextToken - provide a simple token buffer. CurTok is current token
+/// the parser is looking at. getNextToken reads another token from the lexer
+/// and updates CurTok with its results
 static int CurTok;
 static int getNextToken() { return CurTok = gettok(); }
 
-// BinOpPrecedence - this holds the precedence for each binary operator that is
-// defined.
+/// BinOpPrecedence - this holds the precedence for each binary operator that is
+/// defined.
 static std::map<char, int> BinOpPrecedence;
 
-// LogError* - These are helper functions for error handling
+/// LogError* - These are helper functions for error handling
 std::unique_ptr<ExprAST> LogError(const char *Str) {
   fprintf(stderr, "LogError: %s\n", Str);
   return nullptr;
@@ -296,7 +296,7 @@ Value *LogErrorV(const char *Str) {
   return nullptr;
 }
 
-// GetTokPrecedence - get the precedence of the pending binary operator token.
+/// GetTokPrecedence - get the precedence of the pending binary operator token.
 static int GetTokPrecedence() {
   if (!isascii(CurTok))
     return -1;
@@ -309,7 +309,7 @@ static int GetTokPrecedence() {
 static std::unique_ptr<ExprAST> ParseExpression();
 static std::unique_ptr<PrototypeAST> ParsePrototype();
 
-// definition :: 'func' prototype expression
+/// definition :: 'func' prototype expression
 static std::unique_ptr<FunctionAST> ParseDefinition() {
   // Eat func
   getNextToken();
@@ -322,7 +322,7 @@ static std::unique_ptr<FunctionAST> ParseDefinition() {
   return nullptr;
 }
 
-// extern ::= 'extern' prototype
+/// extern ::= 'extern' prototype
 static std::unique_ptr<PrototypeAST> ParseExtern() {
   getNextToken();
   return ParsePrototype();
@@ -337,7 +337,7 @@ static std::unique_ptr<FunctionAST> ParseTopLevelExpr() {
   return nullptr;
 }
 
-// numberexpr ::= number
+/// numberexpr ::= number
 static std::unique_ptr<ExprAST> ParseNumberExpr() {
   auto Result = std::make_unique<NumberExprAST>(NumVal);
   getNextToken(); // consume the number
@@ -387,7 +387,7 @@ static std::unique_ptr<ExprAST> ParseIdentifierExpr() {
   return std::make_unique<CallExprAST>(IdName, std::move(Args));
 }
 
-// ifexpr ::= 'if' expression 'then' expression 'else' expression
+/// ifexpr ::= 'if' expression 'then' expression 'else' expression
 static std::unique_ptr<ExprAST> ParseIfExpr() {
   getNextToken(); // eat the if.
 
@@ -468,10 +468,10 @@ static std::unique_ptr<ExprAST> ParseForExpr() {
                                       std::move(Step), std::move(Body));
 }
 
-// Primary Parser
-//		::= identifierexpr
-//		::= numberexpr
-//		::= parenexpr
+/// Primary Parser
+///		::= identifierexpr
+///		::= numberexpr
+///		::= parenexpr
 static std::unique_ptr<ExprAST> ParsePrimary() {
   switch (CurTok) {
   default:
@@ -615,9 +615,9 @@ static std::unique_ptr<PrototypeAST> ParsePrototype() {
   return std::make_unique<PrototypeAST>(FnName, std::move(ArgNames));
 }
 
-// =============== //
-// Code Generation //
-// =============== //
+/// =============== //
+/// Code Generation //
+/// =============== //
 static std::unique_ptr<LLVMContext> TheContext;
 static std::unique_ptr<Module> TheModule;
 static std::unique_ptr<IRBuilder<>> Builder;
@@ -1002,9 +1002,9 @@ static void MainLoop() {
   }
 }
 
-//================== //
-// Library functions //
-//================== //
+///================== //
+/// Library functions //
+///================== //
 
 #ifdef _WIN32
 #define DLLEXPORT __declspec(dllexport)
@@ -1024,9 +1024,9 @@ extern "C" DLLEXPORT double printd(double X) {
   return 0;
 }
 
-//================== //
-// Main driver code. //
-//================== //
+/// ================== //
+///  Main driver code. //
+/// ================== //
 
 int main() {
   InitializeNativeTarget();
