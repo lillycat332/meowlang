@@ -185,6 +185,12 @@ static int advance() {
 // ==================== //
 
 namespace {
+
+  raw_ostream &indent(raw_ostream &O, int size) {
+    return O << std::string(size, ' ');
+  }
+
+  // Base class for AST Nodes
   class ExprAST {
     SourceLocation Loc;
 
@@ -238,11 +244,16 @@ namespace {
     std::unique_ptr<ExprAST> LHS, RHS;
 
   public:
-    BinaryExprAST(char Op, std::unique_ptr<ExprAST> LHS,
+    BinaryExprAST(SourceLocation Loc, char Op, std::unique_ptr<ExprAST> LHS,
                   std::unique_ptr<ExprAST> RHS)
-        : Op(Op), LHS(std::move(LHS)), RHS(std::move(RHS)) {}
-
+        : ExprAST(Loc), Op(Op), LHS(std::move(LHS)), RHS(std::move(RHS)) {}
     Value *codegen() override;
+    raw_ostream &dump(raw_ostream &out, int ind) override {
+      ExprAST::dump(out << "binary" << Op, ind);
+      LHS->dump(indent(out, ind) << "LHS:", ind + 1);
+      RHS->dump(indent(out, ind) << "RHS:", ind + 1);
+      return out;
+    }
   };
 
   /// CallExprAST - Expression class for function calls.
@@ -263,11 +274,18 @@ namespace {
     std::unique_ptr<ExprAST> Cond, Then, Else;
 
   public:
-    IfExprAST(std::unique_ptr<ExprAST> Cond, std::unique_ptr<ExprAST> Then,
-              std::unique_ptr<ExprAST> Else)
-        : Cond(std::move(Cond)), Then(std::move(Then)), Else(std::move(Else)) {}
-
+    IfExprAST(SourceLocation Loc, std::unique_ptr<ExprAST> Cond,
+              std::unique_ptr<ExprAST> Then, std::unique_ptr<ExprAST> Else)
+        : ExprAST(Loc), Cond(std::move(Cond)), Then(std::move(Then)),
+          Else(std::move(Else)) {}
     Value *codegen() override;
+    raw_ostream &dump(raw_ostream &out, int ind) override {
+      ExprAST::dump(out << "if", ind);
+      Cond->dump(indent(out, ind) << "Cond:", ind + 1);
+      Then->dump(indent(out, ind) << "Then:", ind + 1);
+      Else->dump(indent(out, ind) << "Else:", ind + 1);
+      return out;
+    }
   };
 
   /// ForExprAST - Expression class for for/in.
@@ -466,6 +484,8 @@ static std::unique_ptr<ExprAST> ParseIdentifierExpr() {
 
 /// ifexpr ::= 'if' expression 'then' expression 'else' expression
 static std::unique_ptr<ExprAST> ParseIfExpr() {
+  SourceLocation IfLoc = CurLoc;
+
   getNextToken(); // eat the if.
 
   // condition.
@@ -490,7 +510,7 @@ static std::unique_ptr<ExprAST> ParseIfExpr() {
   if (!Else)
     return nullptr;
 
-  return std::make_unique<IfExprAST>(std::move(Cond), std::move(Then),
+  return std::make_unique<IfExprAST>(IfLoc, std::move(Cond), std::move(Then),
                                      std::move(Else));
 }
 
@@ -645,6 +665,7 @@ static std::unique_ptr<ExprAST> ParseBinOpRHS(int ExprPrec,
 
     // Okay, we know this is a binop.
     int BinOp = CurTok;
+    SourceLocation BinLoc = CurLoc;
     getNextToken(); // eat binop
 
     // Parse the unary expression after the binary operator.
@@ -662,8 +683,8 @@ static std::unique_ptr<ExprAST> ParseBinOpRHS(int ExprPrec,
     }
 
     // Merge LHS/RHS.
-    LHS =
-        std::make_unique<BinaryExprAST>(BinOp, std::move(LHS), std::move(RHS));
+    LHS = std::make_unique<BinaryExprAST>(BinLoc, BinOp, std::move(LHS),
+                                          std::move(RHS));
   }
 }
 
@@ -1076,6 +1097,8 @@ Value *ForExprAST::codegen() {
 }
 
 Value *IfExprAST::codegen() {
+  KSDbgInfo.emitLocation(this);
+
   Value *CondV = Cond->codegen();
   if (!CondV)
     return nullptr;
