@@ -449,7 +449,7 @@ static std::unique_ptr<ExprAST> ParseParenExpr() {
 
   if (CurTok != ')')
     return LogError("expected ')'");
-  x getNextToken(); // eat ).
+  getNextToken(); // eat ).
   return V;
 }
 
