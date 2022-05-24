@@ -27,6 +27,7 @@
 #define DLLEXPORT
 #endif
 
+namespace libmeow {
 /// putchard - putchar that takes a double and returns 0.
 extern "C" DLLEXPORT double putchard(double X) {
   fputc((char)X, stderr);
@@ -41,3 +42,4 @@ extern "C" DLLEXPORT double printd(double X) {
 
 /// returnd - return a double value
 extern "C" DLLEXPORT double returnd(double X) { return X; }
+} // namespace libmeow
