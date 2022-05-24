@@ -84,7 +84,7 @@ static int gettok() {
 
     if (IdentifierStr == "func")
       return tok_func;
-    if (IdentifierStr == "external")
+    if (IdentifierStr == "extern")
       return tok_extern;
     if (IdentifierStr == "if")
       return tok_if;
@@ -322,7 +322,7 @@ static std::unique_ptr<FunctionAST> ParseDefinition() {
   return nullptr;
 }
 
-// external ::= 'extern' prototype
+// extern ::= 'extern' prototype
 static std::unique_ptr<PrototypeAST> ParseExtern() {
   getNextToken();
   return ParsePrototype();
