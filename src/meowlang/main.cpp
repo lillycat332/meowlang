@@ -49,8 +49,8 @@ using namespace llvm;
 // Lexer //
 // ===== //
 
-// The lexer returns tokens [0-255] if it is an unknown character, otherwise one
-// of these for known things.
+/// The lexer returns tokens [0-255] if it is an unknown character, otherwise
+/// one of these for known things.
 enum Token {
   // EOF
   tok_eof = -1,
@@ -81,36 +81,86 @@ enum Token {
   tok_assign = -18,  // :=
 
   // Operators
-  tok_or = -19,     // ||
-  tok_and = -20,    // &&
-  tok_not = -21,    //!
-  tok_eq = -22,     // ==
-  tok_sub = -23,    // -
-  tok_mult = -24,   // *
-  tok_div = -25,    // /
-  tok_mod = -26,    // %
-  tok_unary = -27,  // unary operators
-  tok_binary = -28, // binary operators
+  tok_unary = -19,  // unary operators
+  tok_binary = -20, // binary operators
 
   // Others
-  tok_identifier = -29,
-  tok_true = -30,
-  tok_false = -31,
+  tok_identifier = -21,
+  tok_true = -22,
+  tok_false = -23,
 };
 
 // === //
 // AST //
 // === //
 namespace {
+/// ExprAST - Base class for all expression nodes.
 class ExprAST {
 public:
   virtual ~ExprAST() = default;
 };
 
+/// Types
+/// DoubleExprAST - Expression class for double literals like "12.3".
 class DoubleExprAST : public ExprAST {
   double Val;
 
 public:
   DoubleExprAST(double Val) : Val(Val) {}
 };
+
+/// IntegerExprAST - Expression class for numeric literals like "12".
+class IntegerExprAST : public ExprAST {
+  int Val;
+
+public:
+  IntegerExprAST(int Val) : Val(Val) {}
+};
+
+/// BooleanExprAST - Expression class for a boolean literal.
+class BooleanExprAST : public ExprAST {
+  bool Val;
+
+public:
+  BooleanExprAST(bool Val) : Val(Val) {}
+};
+
+/// StringExprAST - Expression class for string literals.
+class StringExprAST : public ExprAST {
+  std::string Val;
+
+public:
+  StringExprAST(std::string Val) : Val(Val) {}
+};
+
+/// VariableExprAST - Expression class for referencing a variable, like "a".
+class VariableExprAST : public ExprAST {
+  std::string Name;
+
+public:
+  VariableExprAST(const std::string &Name) : Name(Name) {}
+};
+
+/// BinaryExprAST - Expression class for a binary operator.
+class BinaryExprAST : public ExprAST {
+  char Op;
+  std::unique_ptr<ExprAST> LHS, RHS;
+
+public:
+  BinaryExprAST(char op, std::unique_ptr<ExprAST> LHS,
+                std::unique_ptr<ExprAST> RHS)
+      : Op(op), LHS(std::move(LHS)), RHS(std::move(RHS)) {}
+};
+
+/// CallExprAST - Expression class for function calls.
+class CallExprAST : public ExprAST {
+  std::string Callee;
+  std::vector<std::unique_ptr<ExprAST>> Args;
+
+public:
+  CallExprAST(const std::string &Callee,
+              std::vector<std::unique_ptr<ExprAST>> Args)
+      : Callee(Callee), Args(std::move(Args)) {}
+};
+
 } // namespace
