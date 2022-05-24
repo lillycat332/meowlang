@@ -5,7 +5,7 @@
 //  Created by Lilly Cham on 23/05/2022.
 //
 
-#include "../../llvm-project/llvm/examples/Kaleidoscope/include/KaleidoscopeJIT.h"
+#include "../../../llvm-project/llvm/examples/Kaleidoscope/include/KaleidoscopeJIT.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/STLExtras.h"
@@ -118,10 +118,6 @@ static int gettok() {
       return tok_unary;
     if (IdentifierStr == "var")
       return tok_var;
-    if (IdentifierStr == "{")
-      return tok_startblk;
-    if (IdentifierStr == "}")
-      return tok_endblk;
     return tok_identifier;
   }
 
@@ -453,7 +449,7 @@ static std::unique_ptr<ExprAST> ParseParenExpr() {
 
   if (CurTok != ')')
     return LogError("expected ')'");
-  getNextToken(); // eat ).
+  x getNextToken(); // eat ).
   return V;
 }
 
