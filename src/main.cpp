@@ -9,8 +9,11 @@
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/Analysis/BasicAliasAnalysis.h"
+#include "llvm/Analysis/Passes.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
@@ -27,6 +30,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
+#include "llvm/Transforms/Scalar.h"
 #include <algorithm>
 #include <cassert>
 #include <cctype>
@@ -38,6 +42,7 @@
 #include <system_error>
 #include <utility>
 #include <vector>
+
 using namespace llvm;
 using namespace llvm::orc;
 
@@ -141,6 +146,38 @@ static int gettok() {
   int ThisChar = LastChar;
   LastChar = getchar();
   return ThisChar;
+}
+
+namespace {
+  class PrototypeAST;
+  class ExprAST;
+} // namespace
+
+struct DebugInfo {
+  DICompileUnit *TheCU;
+  DIType *DblTy;
+  std::vector<DIScope *> LexicalBlocks;
+
+  void emitLocation(ExprAST *AST);
+  DIType *getDoubleTy();
+} KSDbgInfo;
+
+struct SourceLocation {
+  int Line;
+  int Col;
+};
+static SourceLocation CurLoc;
+static SourceLocation LexLoc = {1, 0};
+
+static int advance() {
+  int LastChar = getchar();
+
+  if (LastChar == '\n' || LastChar == '\r') {
+    LexLoc.Line++;
+    LexLoc.Col = 0;
+  } else
+    LexLoc.Col++;
+  return LastChar;
 }
 
 // ==================== //
@@ -700,18 +737,61 @@ static std::unique_ptr<PrototypeAST> ParsePrototype() {
   return std::make_unique<PrototypeAST>(FnName, ArgNames, Kind != 0,
                                         BinaryPrecedence);
 }
+// =============== //
+// Codegen globals //
+// =============== //
+
+static std::unique_ptr<LLVMContext> TheContext;
+static std::unique_ptr<Module> TheModule;
+static std::unique_ptr<IRBuilder<>> Builder;
+static ExitOnError ExitOnErr;
+
+static std::map<std::string, AllocaInst *> NamedValues;
+static std::unique_ptr<KaleidoscopeJIT> TheJIT;
+static std::map<std::string, std::unique_ptr<PrototypeAST>> FunctionProtos;
+
+// ================== //
+// Debug Info Support //
+// ================== //
+
+static std::unique_ptr<DIBuilder> DBuilder;
+
+DIType *DebugInfo::getDoubleTy() {
+  if (DblTy)
+    return DblTy;
+
+  DblTy = DBuilder->createBasicType("double", 64, dwarf::DW_ATE_float);
+  return DblTy;
+}
+
+void DebugInfo::emitLocation(ExprAST *AST) {
+  if (!AST)
+    return Builder->SetCurrentDebugLocation(DebugLoc());
+  DIScope *Scope;
+  if (LexicalBlocks.empty())
+    Scope = TheCU;
+  else
+    Scope = LexicalBlocks.back();
+  Builder->SetCurrentDebugLocation(DILocation::get(
+      Scope->getContext(), AST->getLine(), AST->getCol(), Scope));
+}
+
+static DISubroutineType *CreateFunctionType(unsigned NumArgs, DIFile *Unit) {
+  SmallVector<Metadata *, 8> EltTys;
+  DIType *DblTy = KSDbgInfo.getDoubleTy();
+
+  // Add the result type.
+  EltTys.push_back(DblTy);
+
+  for (unsigned i = 0, e = NumArgs; i != e; ++i)
+    EltTys.push_back(DblTy);
+
+  return DBuilder->createSubroutineType(DBuilder->getOrCreateTypeArray(EltTys));
+}
 
 /// =============== //
 /// Code Generation //
 /// =============== //
-static std::unique_ptr<LLVMContext> TheContext;
-static std::unique_ptr<Module> TheModule;
-static std::unique_ptr<IRBuilder<>> Builder;
-static std::map<std::string, AllocaInst *> NamedValues;
-static std::map<std::string, std::unique_ptr<PrototypeAST>> FunctionProtos;
-static std::unique_ptr<legacy::FunctionPassManager> TheFPM;
-static std::unique_ptr<llvm::orc::KaleidoscopeJIT> TheJIT;
-static ExitOnError ExitOnErr;
 
 Value *LogErrorV(const char *Str) {
   LogError(Str);
