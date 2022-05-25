@@ -94,73 +94,73 @@ enum Token {
 // AST //
 // === //
 namespace {
-/// ExprAST - Base class for all expression nodes.
-class ExprAST {
-public:
-  virtual ~ExprAST() = default;
-};
+  /// ExprAST - Base class for all expression nodes.
+  class ExprAST {
+  public:
+    virtual ~ExprAST() = default;
+  };
 
-/// Types
-/// DoubleExprAST - Expression class for double literals like "12.3".
-class DoubleExprAST : public ExprAST {
-  double Val;
+  /// Types
+  /// DoubleExprAST - Expression class for double literals like "12.3".
+  class DoubleExprAST : public ExprAST {
+    double Val;
 
-public:
-  DoubleExprAST(double Val) : Val(Val) {}
-};
+  public:
+    DoubleExprAST(double Val) : Val(Val) {}
+  };
 
-/// IntegerExprAST - Expression class for numeric literals like "12".
-class IntegerExprAST : public ExprAST {
-  int Val;
+  /// IntegerExprAST - Expression class for numeric literals like "12".
+  class IntegerExprAST : public ExprAST {
+    int Val;
 
-public:
-  IntegerExprAST(int Val) : Val(Val) {}
-};
+  public:
+    IntegerExprAST(int Val) : Val(Val) {}
+  };
 
-/// BooleanExprAST - Expression class for a boolean literal.
-class BooleanExprAST : public ExprAST {
-  bool Val;
+  /// BooleanExprAST - Expression class for a boolean literal.
+  class BooleanExprAST : public ExprAST {
+    bool Val;
 
-public:
-  BooleanExprAST(bool Val) : Val(Val) {}
-};
+  public:
+    BooleanExprAST(bool Val) : Val(Val) {}
+  };
 
-/// StringExprAST - Expression class for string literals.
-class StringExprAST : public ExprAST {
-  std::string Val;
+  /// StringExprAST - Expression class for string literals.
+  class StringExprAST : public ExprAST {
+    std::string Val;
 
-public:
-  StringExprAST(std::string Val) : Val(Val) {}
-};
+  public:
+    StringExprAST(std::string Val) : Val(Val) {}
+  };
 
-/// VariableExprAST - Expression class for referencing a variable, like "a".
-class VariableExprAST : public ExprAST {
-  std::string Name;
+  /// VariableExprAST - Expression class for referencing a variable, like "a".
+  class VariableExprAST : public ExprAST {
+    std::string Name;
 
-public:
-  VariableExprAST(const std::string &Name) : Name(Name) {}
-};
+  public:
+    VariableExprAST(const std::string &Name) : Name(Name) {}
+  };
 
-/// BinaryExprAST - Expression class for a binary operator.
-class BinaryExprAST : public ExprAST {
-  char Op;
-  std::unique_ptr<ExprAST> LHS, RHS;
+  /// BinaryExprAST - Expression class for a binary operator.
+  class BinaryExprAST : public ExprAST {
+    char Op;
+    std::unique_ptr<ExprAST> LHS, RHS;
 
-public:
-  BinaryExprAST(char op, std::unique_ptr<ExprAST> LHS,
-                std::unique_ptr<ExprAST> RHS)
-      : Op(op), LHS(std::move(LHS)), RHS(std::move(RHS)) {}
-};
+  public:
+    BinaryExprAST(char op, std::unique_ptr<ExprAST> LHS,
+                  std::unique_ptr<ExprAST> RHS)
+        : Op(op), LHS(std::move(LHS)), RHS(std::move(RHS)) {}
+  };
 
-/// CallExprAST - Expression class for function calls.
-class CallExprAST : public ExprAST {
-  std::string Callee;
-  std::vector<std::unique_ptr<ExprAST>> Args;
+  /// CallExprAST - Expression class for function calls.
+  class CallExprAST : public ExprAST {
+    std::string Callee;
+    std::vector<std::unique_ptr<ExprAST>> Args;
 
-public:
-  CallExprAST(const std::string &Callee,
-              std::vector<std::unique_ptr<ExprAST>> Args)
-      : Callee(Callee), Args(std::move(Args)) {}
-};
+  public:
+    CallExprAST(const std::string &Callee,
+                std::vector<std::unique_ptr<ExprAST>> Args)
+        : Callee(Callee), Args(std::move(Args)) {}
+  };
 
 } // namespace
