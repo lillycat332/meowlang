@@ -163,3 +163,40 @@ namespace {
   };
 
 } // namespace
+
+// ====== //
+// Parser //
+// ====== //
+
+/// doubleexpr ::= double
+static std::unique_ptr<ExprAST> ParseDoubleExpr() {
+  auto Result = std::make_unique<DoubleExprAST>(DoubleVal);
+  getNextToken(); // eat the value
+  return std::move(Result);
+}
+
+/// parenexpr ::= '(' expression ')'
+static std::unique_ptr<ExprAST> ParseParenExpr() {
+  getNextToken(); // eat (.
+  auto V = ParseExpression();
+  if (!V)
+    return nullptr;
+
+  if (CurTok != ')')
+    return LogError("expected ')'");
+  getNextToken(); // eat ).
+  return V;
+}
+
+/// braceexpr ::= '{' expression '}'
+static std::unique_ptr<ExprAST> ParseBraceExpr() {
+  getNextToken(); // eat {.
+  auto V = ParseExpression();
+  if (!V)
+    return nullptr;
+
+  if (CurTok != '}')
+    return LogError("expected '}'");
+  getNextToken(); // eat }.
+  return V;
+}
