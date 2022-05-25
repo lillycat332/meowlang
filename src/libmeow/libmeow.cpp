@@ -44,17 +44,19 @@ namespace libmeow {
   extern "C" DLLEXPORT double returnd(double X) { return X; }
 
   // sqrt - square root
-  extern "C" DLLEXPORT double sqrt(double X) { return std::sqrt(X); }
+  extern "C" DLLEXPORT double squareroot(double X) { return std::sqrt(X); }
 
   // pow - power
-  extern "C" DLLEXPORT double pow(double X, double Y) { return std::pow(X, Y); }
+  extern "C" DLLEXPORT double power(double X, double Y) {
+    return std::pow(X, Y);
+  }
 
   // sin - sine
-  extern "C" DLLEXPORT double sin(double X) { return std::sin(X); }
+  extern "C" DLLEXPORT double sine(double X) { return std::sin(X); }
 
   // cos - cosine
-  extern "C" DLLEXPORT double cos(double X) { return std::cos(X); }
+  extern "C" DLLEXPORT double cosine(double X) { return std::cos(X); }
 
   // tan - tangent
-  extern "C" DLLEXPORT double tan(double X) { return std::tan(X); }
+  extern "C" DLLEXPORT double tangent(double X) { return std::tan(X); }
 } // namespace libmeow
