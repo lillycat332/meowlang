@@ -37,6 +37,7 @@
 #include <cstdlib>
 #include <map>
 #include <memory>
+#include <stdio.h>
 #include <string>
 #include <system_error>
 #include <utility>
@@ -44,11 +45,24 @@
 
 using namespace llvm;
 namespace meowlang {
+
+  ///======== ///
+  /// Globals ///
+  ///======== ///
+
+  static std::string IdentifierStr; // filled in if tok_identifier
+  static double DoubleVal;          // Filled in if tok_double
+  static int IntVal;                // Filled in if tok_int
+  static bool BoolVal;              // Filled in if tok_bool
+  static std::string StrVal;        // Filled in if tok_string
+
   // ===== //
   // Lexer //
   // ===== //
+
   namespace lexer {
-    /// The lexer returns tokens [0-255] if it is an unknown character,
+
+    /// the lexer returns tokens [0-255] if it is an unknown character,
     /// otherwise one of these for known things.
     enum Token {
       // EOF
@@ -58,38 +72,100 @@ namespace meowlang {
       tok_func = -2,
       tok_return = -3,
       tok_extern = -4,
+      tok_var = -5,
+      tok_let = -6,
 
       // Control flow
-      tok_if = -5,
-      tok_else = -6,
-      tok_for = -7,
-      tok_break = -8,
+      tok_if = -7,
+      tok_else = -8,
+      tok_for = -9,
+      tok_break = -10,
 
       // Builtin Types
-      tok_double = -9,
-      tok_int = -10,
-      tok_string = -11,
-      tok_bool = -12,
+      tok_double = -11,
+      tok_int = -12,
+      tok_string = -13,
+      tok_bool = -14,
 
       // Structural symbols
-      tok_lparen = -13,  // (
-      tok_rparen = -14,  // )
-      tok_lbrace = -15,  // {
-      tok_rbrace = -16,  // }
-      tok_rettype = -17, // return type ->
-      tok_assign = -18,  // :=
+      tok_lparen = -17,  // (
+      tok_rparen = -18,  // )
+      tok_lbrace = -19,  // {
+      tok_rbrace = -20,  // }
+      tok_rettype = -21, // return type ->
+      tok_assign = -22,  // :=
 
       // Operators
-      tok_unary = -19,  // unary operators
-      tok_binary = -20, // binary operators
+      tok_unary = -23,  // unary operators
+      tok_binary = -24, // binary operators
 
       // Others
-      tok_identifier = -21,
-      tok_true = -22,
-      tok_false = -23,
+      tok_identifier = -25,
+      tok_true = -26,
+      tok_false = -27,
     };
 
-    static int gettok() {}
+    // gettok - Return the next token from standard input/the file.
+    static int gettok() {
+      static int LastChar = ' ';
+
+      // Skip over whitespace
+      while (isspace(LastChar))
+        LastChar = getchar();
+
+      if (isalpha(LastChar)) {
+        IdentifierStr = LastChar;
+        while (isalnum((LastChar = getchar())))
+          IdentifierStr += LastChar;
+
+        // Check for keywords
+        if (IdentifierStr == "func")
+          return tok_func;
+
+        if (IdentifierStr == "extern")
+          return tok_extern;
+
+        if (IdentifierStr == "return")
+          return tok_return;
+
+        if (IdentifierStr == "var")
+          return tok_var;
+
+        if (IdentifierStr == "let")
+          return tok_let;
+      }
+
+      // Check for doubles, the default number type in Meowlang
+      if (isdigit(LastChar) || LastChar == '.') { // Number: [0-9.]+
+        std::string DoubleStr;
+        do {
+          DoubleStr += LastChar;
+          LastChar = getchar();
+        } while (isdigit(LastChar) || LastChar == '.');
+
+        DoubleVal = strtod(NumStr.c_str(), nullptr);
+        return tok_double;
+      }
+
+      // Check for comments.
+      if (LastChar == '#') {
+        do {
+          LastChar = getchar();
+        } while (LastChar != EOF && LastChar != '\n' && LastChar != '\r');
+
+        if (LastChar != EOF)
+          return gettok();
+      }
+
+      // Check for EOF, but don't eat the EOF.
+      if (LastChar == EOF)
+        return tok_eof;
+
+      // Otherwise, just return the character as its ascii value.
+      int ThisChar = LastChar;
+      LastChar = getchar();
+      return ThisChar;
+    }
 
   } // namespace lexer
 
@@ -202,11 +278,6 @@ namespace meowlang {
   // ====== //
 
   namespace parse {
-    static std::string IdentifierStr; // filled in if tok_identifier
-    static double DoubleVal;          // Filled in if tok_double
-    static int IntVal;                // Filled in if tok_int
-    static bool BoolVal;              // Filled in if tok_bool
-    static std::string StrVal;        // Filled in if tok_string
     static std::unique_ptr<AST::ExprAST> ParseExpression();
 
     /// CurTok/getNextToken - Provide a simple token buffer.  CurTok is the
@@ -215,12 +286,10 @@ namespace meowlang {
     static int CurTok;
     static int getNextToken() { return CurTok = lexer::gettok(); }
 
-    /// BinopPrecedence - This holds the precedence for each binary operator
-    /// that is defined.
+    /// BinopPrecedence - holds the precedence for each binary operator defined.
     static std::map<char, int> BinopPrecedence;
 
-    /// GetTokPrecedence - Get the precedence of the pending binary operator
-    /// token.
+    /// GetTokPrecedence - get precedence of the pending binary operator token.
     static int GetTokPrecedence() {
       if (!isascii(CurTok))
         return -1;
