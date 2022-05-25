@@ -5,7 +5,6 @@
 //  Created by Lilly Cham on 23/05/2022.
 //
 
-#include "../../../llvm-project/llvm/examples/Kaleidoscope/include/KaleidoscopeJIT.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/STLExtras.h"
