@@ -143,7 +143,7 @@ namespace meowlang {
           LastChar = getchar();
         } while (isdigit(LastChar) || LastChar == '.');
 
-        DoubleVal = strtod(NumStr.c_str(), nullptr);
+        DoubleVal = strtod(DoubleStr.c_str(), nullptr);
         return tok_double;
       }
 
