@@ -557,8 +557,37 @@ namespace meowlang {
     Value AST::StringExprAST::codegen() {
       return ConstantDataArray::getString(TheContext, Val, true);
     }
-  } // namespace codegen
-} // namespace meowlang
 
-// filler main function (for test compiles).
-int main() { printf("MeowLang v0.1\n"); }
+    Value AST::VariableExprAST::codegen() {
+      // Look this variable up in the function.
+      Value *V = NamedValues[Name];
+      if (!V)
+        return LogErrorV("Unknown variable name");
+      return V;
+    }
+
+    Value AST::BinaryExprAST::codegen() {
+      Value *L = LHS->codegen();
+      Value *R = LHS->codegen();
+      if (!L || !R)
+        return nullptr;
+      switch (Op) {
+      case '+':
+        return Builder->CreateFAdd(L, R, "addtmp");
+      case '-':
+        return Builder->CreateFSub(L, R, "subtmp");
+      case '*':
+        return Builder->CreateFMul(L, R, "multmp");
+      case '<':
+        L = Builder->CreateFCmpULT(L, R, "cmptmp");
+        // Convert bool 0/1 to double 0.0 or 1.0.
+        return Builder->CreateUIToFP(L, Type::getDoubleTy(TheContext),
+                                     "booltmp");
+      default:
+        return LogErrorV("invalid binary operator");
+      }
+    } // namespace codegen
+  }   // namespace meowlang
+
+  // filler main function (for test compiles).
+  int main() { printf("MeowLang v0.1\n"); }
