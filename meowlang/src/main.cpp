@@ -107,7 +107,7 @@ namespace meowlang {
 
     // gettok - returns the next token from standard input/the file.
     static int gettok() {
-      static char16_t LastChar = ' ';
+      static char LastChar = ' ';
 
       // skip over whitespace
       while (isspace(LastChar))
@@ -135,10 +135,6 @@ namespace meowlang {
           return tok_let;
       }
 
-      // Check for special symbols / syntactic sugar (λ)
-      if (LastChar == u'λ') // lambda, which is effectively syntactic sugar for
-        return tok_func;    // function definition
-
       // Check for doubles, the default number type in Meowlang
       if (isdigit(LastChar) || LastChar == '.') { // Number: [0-9.]+
         std::string DoubleStr;
@@ -155,15 +151,14 @@ namespace meowlang {
       if (LastChar == '#') {
         do {
           LastChar = getchar();
-        } while (LastChar != std::char_traits<char16_t>::eof() &&
-                 LastChar != '\n' && LastChar != '\r');
+        } while (LastChar != EOF && LastChar != '\n' && LastChar != '\r');
 
-        if (LastChar != std::char_traits<char16_t>::eof())
+        if (LastChar != EOF)
           return gettok();
       }
 
       // Check for EOF, but don't eat the EOF.
-      if (LastChar == std::char_traits<char16_t>::eof())
+      if (LastChar == EOF)
         return tok_eof;
 
       // Otherwise, just return the character as its ascii value.
@@ -239,7 +234,7 @@ namespace meowlang {
 
     /// BinaryExprAST - Expression class for a binary operator.
     class BinaryExprAST : public ExprAST {
-      char16_t Op;
+      char Op;
       std::unique_ptr<ExprAST> LHS, RHS;
 
     public:
@@ -653,7 +648,7 @@ namespace meowlang {
   }
 
   static void HandleDefinition() {
-    if (ParseDefinition()) {
+    if (parse::ParseDefinition()) {
       fprintf(stderr, "Parsed a function definition.\n");
     } else {
       // Skip token for error recovery.
@@ -662,7 +657,7 @@ namespace meowlang {
   }
 
   static void HandleExtern() {
-    if (ParseExtern()) {
+    if (parse::ParseExtern()) {
       fprintf(stderr, "Parsed an extern\n");
     } else {
       // Skip token for error recovery.
@@ -684,16 +679,17 @@ namespace meowlang {
   static void MainLoop() {
     while (true) {
       fprintf(stderr, "ready> ");
-      switch (CurTok) {
-      case tok_eof:
+      switch (parse::CurTok) {
+      case lexer::tok_eof:
         return;
       case ';': // ignore top-level semicolons.
         parse::getNextToken();
         break;
-      case tok_func:
+      case lexer::tok_func:
         HandleDefinition();
+        printf("func\n");
         break;
-      case tok_extern:
+      case lexer::tok_extern:
         HandleExtern();
         break;
       default:
@@ -703,6 +699,8 @@ namespace meowlang {
     }
   }
 } // namespace meowlang
+
+using namespace meowlang;
 int main() {
   // Install standard binary operators.
   // 1 is lowest precedence.
