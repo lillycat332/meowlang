@@ -179,6 +179,7 @@ namespace meowlang {
     class ExprAST {
     public:
       virtual ~ExprAST() = default;
+      virtual Value *codegen() = 0;
     };
 
     // ===== //
@@ -191,6 +192,7 @@ namespace meowlang {
 
     public:
       DoubleExprAST(double Val) : Val(Val) {}
+      Value *codegen() override;
     };
 
     /// IntegerExprAST - Expression class for integer literals like "12".
@@ -199,6 +201,7 @@ namespace meowlang {
 
     public:
       IntegerExprAST(int Val) : Val(Val) {}
+      Value *codegen() override;
     };
 
     /// BooleanExprAST - Expression class for a boolean literal like true.
@@ -207,6 +210,7 @@ namespace meowlang {
 
     public:
       BooleanExprAST(bool Val) : Val(Val) {}
+      Value *codegen() override;
     };
 
     /// StringExprAST - Expression class for string literals
@@ -216,6 +220,7 @@ namespace meowlang {
 
     public:
       StringExprAST(std::string Val) : Val(Val) {}
+      Value *codegen() override;
     };
 
     /// VariableExprAST - Expression class for referencing a variable, like "a".
@@ -224,6 +229,7 @@ namespace meowlang {
 
     public:
       VariableExprAST(const std::string &Name) : Name(Name) {}
+      Value *codegen() override;
     };
 
     /// BinaryExprAST - Expression class for a binary operator.
@@ -235,6 +241,7 @@ namespace meowlang {
       BinaryExprAST(char op, std::unique_ptr<ExprAST> LHS,
                     std::unique_ptr<ExprAST> RHS)
           : Op(op), LHS(std::move(LHS)), RHS(std::move(RHS)) {}
+      Value *codegen() override;
     };
 
     /// CallExprAST - Expression class for function calls.
@@ -246,6 +253,7 @@ namespace meowlang {
       CallExprAST(const std::string &Callee,
                   std::vector<std::unique_ptr<ExprAST>> Args)
           : Callee(Callee), Args(std::move(Args)) {}
+      Value *codegen() override;
     };
 
     /// PrototypeAST - This class represents the "prototype" for a function,
@@ -260,6 +268,7 @@ namespace meowlang {
           : Name(name), Args(std::move(Args)) {}
 
       const std::string &getName() const { return Name; }
+      Value *codegen() override;
     };
 
     /// FunctionAST - This class represents a function definition itself.
@@ -271,6 +280,7 @@ namespace meowlang {
       FunctionAST(std::unique_ptr<PrototypeAST> Proto,
                   std::unique_ptr<ExprAST> Body)
           : Proto(std::move(Proto)), Body(std::move(Body)) {}
+      Value *codegen() override;
     };
 
   } // namespace AST
@@ -516,6 +526,38 @@ namespace meowlang {
       return ParseBinOpRHS(0, std::move(LHS));
     }
   } // namespace parse
+
+  namespace codegen {
+    /// =============== ///
+    /// Code Generation ///
+    /// =============== ///
+
+    static LLVMContext TheContext;
+    static IRBuilder<> Builder(TheContext);
+    static std::unique_ptr<Module> TheModule;
+    static std::map<std::string, Value *> NamedValues;
+
+    Value *LogErrorV(const char *Str) {
+      LogError(Str);
+      return nullptr;
+    }
+
+    Value AST::DoubleExprAST::codegen() {
+      return ConstantFP::get(TheContext, APFloat(Val));
+    }
+
+    Value AST::IntegerExprAST::codegen() {
+      return ConstantInt::get(TheContext, APInt(64, Val));
+    }
+
+    Value AST::BooleanExprAST::codegen() {
+      return ConstantInt::get(TheContext, APInt(1, Val));
+    }
+
+    Value AST::StringExprAST::codegen() {
+      return ConstantDataArray::getString(TheContext, Val, true);
+    }
+  } // namespace codegen
 } // namespace meowlang
 
 // filler main function (for test compiles).
