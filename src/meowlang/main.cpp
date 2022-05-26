@@ -56,13 +56,13 @@ namespace meowlang {
   static bool BoolVal;              // Filled in if tok_bool
   static std::string StrVal;        // Filled in if tok_string
 
-  // ===== //
-  // Lexer //
-  // ===== //
-
   namespace lexer {
 
-    /// the lexer returns tokens [0-255] if it is an unknown character,
+    // ===== //
+    // Lexer //
+    // ===== //
+
+    /// The lexer returns tokens [0-255] if it is an unknown character,
     /// otherwise one of these for known things.
     enum Token {
       // EOF
@@ -169,10 +169,12 @@ namespace meowlang {
 
   } // namespace lexer
 
-  // === //
-  // AST //
-  // === //
   namespace AST {
+
+    // === //
+    // AST //
+    // === //
+
     /// ExprAST - Base class for all expression nodes.
     class ExprAST {
     public:
@@ -273,11 +275,12 @@ namespace meowlang {
 
   } // namespace AST
 
-  // ====== //
-  // Parser //
-  // ====== //
-
   namespace parse {
+
+    // ====== //
+    // Parser //
+    // ====== //
+
     static std::unique_ptr<AST::ExprAST> ParseExpression();
 
     /// CurTok/getNextToken - Provide a simple token buffer.  CurTok is the
@@ -301,8 +304,8 @@ namespace meowlang {
       return TokPrec;
     }
 
-    /// LogError* - These are helper functions for error handling
-    /// they allow us to return errors from the parser.
+    /// LogError* - These are helper functions for error handling.
+    /// They allow us to return errors from the parser.
     std::unique_ptr<AST::ExprAST> LogError(const char *Str) {
       fprintf(stderr, "LogError: %s\n", Str);
       return nullptr;
@@ -312,6 +315,8 @@ namespace meowlang {
       LogError(Str);
       return nullptr;
     }
+
+    // Parser implementation
 
     /// doubleexpr ::= double
     static std::unique_ptr<AST::ExprAST> ParseDoubleExpr() {
