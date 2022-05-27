@@ -6,6 +6,38 @@
 	objectVersion = 55;
 	objects = {
 
+/* Begin PBXAggregateTarget section */
+		EB4ED58B2840FB1D00217953 /* Stdlib+Language */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = EB4ED58C2840FB1D00217953 /* Build configuration list for PBXAggregateTarget "Stdlib+Language" */;
+			buildPhases = (
+			);
+			dependencies = (
+				EB4ED5922840FBD200217953 /* PBXTargetDependency */,
+				EB4ED5902840FBCE00217953 /* PBXTargetDependency */,
+			);
+			name = "Stdlib+Language";
+			productName = "Stdlib+Language";
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXContainerItemProxy section */
+		EB4ED58F2840FBCE00217953 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = EBF4E14E2840F72700217953 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EB4ED5832840FABF00217953;
+			remoteInfo = "Standard Library";
+		};
+		EB4ED5912840FBD200217953 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = EBF4E14E2840F72700217953 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EB4ED5872840FAFB00217953;
+			remoteInfo = "Core Language";
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		EBF4E1582840F7C400217953 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		EBF4E1592840F7C400217953 /* Makefile */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
@@ -35,19 +67,33 @@
 /* End PBXGroup section */
 
 /* Begin PBXLegacyTarget section */
-		EBF4E1522840F72700217953 /* meowlang */ = {
+		EB4ED5832840FABF00217953 /* Standard Library */ = {
 			isa = PBXLegacyTarget;
-			buildArgumentsString = "--command make";
-			buildConfigurationList = EBF4E1552840F72700217953 /* Build configuration list for PBXLegacyTarget "meowlang" */;
+			buildArgumentsString = "--command \"make lib\"";
+			buildConfigurationList = EB4ED5842840FABF00217953 /* Build configuration list for PBXLegacyTarget "Standard Library" */;
 			buildPhases = (
 			);
 			buildToolPath = "/run/current-system/sw/bin/nix-shell";
 			buildWorkingDirectory = "";
 			dependencies = (
 			);
-			name = meowlang;
-			passBuildSettingsInEnvironment = 0;
-			productName = meowlang;
+			name = "Standard Library";
+			passBuildSettingsInEnvironment = 1;
+			productName = meow;
+		};
+		EB4ED5872840FAFB00217953 /* Core Language */ = {
+			isa = PBXLegacyTarget;
+			buildArgumentsString = "--command \"make lang\"";
+			buildConfigurationList = EB4ED5882840FAFB00217953 /* Build configuration list for PBXLegacyTarget "Core Language" */;
+			buildPhases = (
+			);
+			buildToolPath = "/run/current-system/sw/bin/nix-shell";
+			buildWorkingDirectory = "";
+			dependencies = (
+			);
+			name = "Core Language";
+			passBuildSettingsInEnvironment = 1;
+			productName = meow;
 		};
 /* End PBXLegacyTarget section */
 
@@ -58,7 +104,10 @@
 				BuildIndependentTargetsInParallel = 1;
 				LastUpgradeCheck = 1320;
 				TargetAttributes = {
-					EBF4E1522840F72700217953 = {
+					EB4ED5832840FABF00217953 = {
+						CreatedOnToolsVersion = 13.2.1;
+					};
+					EB4ED58B2840FB1D00217953 = {
 						CreatedOnToolsVersion = 13.2.1;
 					};
 				};
@@ -75,19 +124,122 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				EBF4E1522840F72700217953 /* meowlang */,
+				EB4ED5832840FABF00217953 /* Standard Library */,
+				EB4ED5872840FAFB00217953 /* Core Language */,
+				EB4ED58B2840FB1D00217953 /* Stdlib+Language */,
 			);
 		};
 /* End PBXProject section */
 
+/* Begin PBXTargetDependency section */
+		EB4ED5902840FBCE00217953 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EB4ED5832840FABF00217953 /* Standard Library */;
+			targetProxy = EB4ED58F2840FBCE00217953 /* PBXContainerItemProxy */;
+		};
+		EB4ED5922840FBD200217953 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EB4ED5872840FAFB00217953 /* Core Language */;
+			targetProxy = EB4ED5912840FBD200217953 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		EB4ED5852840FABF00217953 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
+				CODE_SIGN_STYLE = Automatic;
+				DEBUGGING_SYMBOLS = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = UN964XDAH7;
+				GCC_C_LANGUAGE_STANDARD = c11;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		EB4ED5862840FABF00217953 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
+				CODE_SIGN_STYLE = Automatic;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = UN964XDAH7;
+				GCC_C_LANGUAGE_STANDARD = c11;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		EB4ED5892840FAFB00217953 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
+				CODE_SIGN_STYLE = Automatic;
+				DEBUGGING_SYMBOLS = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = UN964XDAH7;
+				GCC_C_LANGUAGE_STANDARD = c11;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		EB4ED58A2840FAFB00217953 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
+				CODE_SIGN_STYLE = Automatic;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = UN964XDAH7;
+				GCC_C_LANGUAGE_STANDARD = c11;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		EB4ED58D2840FB1D00217953 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 0.0.1;
+				DEVELOPMENT_TEAM = UN964XDAH7;
+				GCC_C_LANGUAGE_STANDARD = c11;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_SUFFIX = toy;
+			};
+			name = Debug;
+		};
+		EB4ED58E2840FB1D00217953 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 0.0.1;
+				DEVELOPMENT_TEAM = UN964XDAH7;
+				GCC_C_LANGUAGE_STANDARD = c11;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_SUFFIX = toy;
+			};
+			name = Release;
+		};
 		EBF4E1532840F72700217953 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
@@ -144,7 +296,7 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
@@ -188,50 +340,41 @@
 			};
 			name = Release;
 		};
-		EBF4E1562840F72700217953 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				DEBUGGING_SYMBOLS = YES;
-				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = UN964XDAH7;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-			};
-			name = Debug;
-		};
-		EBF4E1572840F72700217953 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = UN964XDAH7;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-			};
-			name = Release;
-		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		EB4ED5842840FABF00217953 /* Build configuration list for PBXLegacyTarget "Standard Library" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EB4ED5852840FABF00217953 /* Debug */,
+				EB4ED5862840FABF00217953 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		EB4ED5882840FAFB00217953 /* Build configuration list for PBXLegacyTarget "Core Language" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EB4ED5892840FAFB00217953 /* Debug */,
+				EB4ED58A2840FAFB00217953 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		EB4ED58C2840FB1D00217953 /* Build configuration list for PBXAggregateTarget "Stdlib+Language" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EB4ED58D2840FB1D00217953 /* Debug */,
+				EB4ED58E2840FB1D00217953 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		EBF4E1512840F72700217953 /* Build configuration list for PBXProject "meowlang" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EBF4E1532840F72700217953 /* Debug */,
 				EBF4E1542840F72700217953 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		EBF4E1552840F72700217953 /* Build configuration list for PBXLegacyTarget "meowlang" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				EBF4E1562840F72700217953 /* Debug */,
-				EBF4E1572840F72700217953 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
